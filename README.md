@@ -255,6 +255,25 @@ GUI は `tasks.log` の consumer であり producer でもある。Agent と GUI
 - セッションログに `TASK_ADD_{id}` がある → **Agent 起票**
 - セッションログにない → **人間起票**（GUI 経由）
 
+### セッションログからの状態推定
+
+Agent が `task update blocked` を呼ばなくても、セッションログのシグナルから GUI がタスクの実質的な状態を推定できる。
+
+| Agent | plan mode シグナル | session log 形式 |
+|-------|-------------------|-----------------|
+| Claude Code | `tool_result` に `"Entered plan mode"` が含まれる | `~/.claude/projects/<path>/<session>.jsonl` |
+| Codex | `turn_context` の `collaboration_mode.mode = "plan"` | `~/.codex/archived_sessions/rollout-<ts>-<uuid>.jsonl` |
+
+推定ルール:
+
+| session log のシグナル | 推定状態 |
+|---|---|
+| `TASK_DOING_{id}` が最新 + セッションがアクティブ | doing（作業中）|
+| `TASK_DOING_{id}` 後に plan mode 検出 | blocked（plan review 待ち）|
+| `TASK_DOING_{id}` 後にセッション終了、後続の更新なし | blocked（セッション切れ）|
+
+tasks.log 上のステータスと矛盾する場合は、セッションログ側の推定を優先する（Agent が `blocked` への更新をスキップするケースがあるため）。
+
 ### 実装方針
 
 - **表示**: `jq -s 'group_by(.id) | map(last)' tasks.log` で各IDの最新エントリ（= 現在状態）を取得。タイムスタンプから経過時間や時系列ビューも構築可能
@@ -262,6 +281,7 @@ GUI は `tasks.log` の consumer であり producer でもある。Agent と GUI
 - **リアルタイム更新**: `tasks.log` を `inotify` / `FSEvents` で watch
 - **PR 展開**: note に GitHub PR URL が含まれる場合、`gh api` で詳細を取得して展開表示
 - **PR 中心ビュー**: `inreview` のタスクを note の PR URL で group_by すれば、PR 単位で紐づくタスク群を表示できる。複数タスクが1つの PR にまとまるケースに対応
+- **セッション状態推定**: セッションログを watch し、plan mode 等のシグナルからタスク状態を補完
 
 ## Development
 
