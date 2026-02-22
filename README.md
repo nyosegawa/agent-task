@@ -7,7 +7,7 @@ Coding Agent と人間が非同期で協調するための軽量タスク管理C
 ## Install
 
 ```bash
-cargo install --git ssh://git@github.com/nyosegawa/task.git
+cargo install --git ssh://git@github.com/nyosegawa/agent-task.git
 ```
 
 ## Commands
