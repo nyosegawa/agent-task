@@ -171,11 +171,18 @@ fn main() {
             }
         }
         Commands::Init { global } => {
-            let injected = init::run_init(global);
-            if injected.is_empty() {
-                println!("No files to inject (all up-to-date or no target files found)");
+            let result = init::run_init(global);
+            if result.injected.is_empty() {
+                if result.candidates.is_empty() {
+                    println!("Already up-to-date.");
+                } else {
+                    println!(
+                        "No instruction files found. Create one of these and run again:\n  {}",
+                        result.candidates.join(", ")
+                    );
+                }
             } else {
-                for path in &injected {
+                for path in &result.injected {
                     println!("Injected: {path}");
                 }
             }

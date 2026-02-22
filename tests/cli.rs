@@ -185,7 +185,9 @@ fn get_shows_history() {
 fn init_no_targets_shows_message() {
     let (mut cmd, _dir) = task_cmd_with_log();
     cmd.args(["init"]).assert().success().stdout(
-        predicate::str::contains("No files to inject").or(predicate::str::contains("Injected")),
+        predicate::str::contains("No instruction files found")
+            .or(predicate::str::contains("Already up-to-date"))
+            .or(predicate::str::contains("Injected")),
     );
 }
 

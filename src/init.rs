@@ -53,14 +53,36 @@ fn inject_into(target: &InjectionTarget) -> Option<String> {
     Some(path.to_string_lossy().to_string())
 }
 
-pub fn run_init(global: bool) -> Vec<String> {
+pub struct InitResult {
+    pub injected: Vec<String>,
+    pub candidates: Vec<String>,
+}
+
+pub fn run_init(global: bool) -> InitResult {
     let targets = if global {
         global_targets()
     } else {
         local_targets()
     };
 
-    targets.iter().filter_map(inject_into).collect()
+    let candidates: Vec<String> = targets
+        .iter()
+        .filter(|t| !t.create_file)
+        .map(|t| {
+            t.path
+                .file_name()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .to_string()
+        })
+        .collect();
+
+    let injected = targets.iter().filter_map(inject_into).collect();
+
+    InitResult {
+        injected,
+        candidates,
+    }
 }
 
 fn local_targets() -> Vec<InjectionTarget> {
