@@ -17,7 +17,7 @@ JSONL ファイル (`~/.local/share/tasks/tasks.log`) を single source of truth
 ## Install
 
 ```bash
-cargo install --git ssh://git@github.com/nyosegawa/agent-task.git
+cargo install agent-task
 ```
 
 ## Commands

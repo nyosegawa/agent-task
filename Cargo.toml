@@ -2,6 +2,13 @@
 name = "agent-task"
 version = "0.2.0"
 edition = "2024"
+description = "Lightweight task management CLI for coding agents and humans to collaborate asynchronously"
+license = "MIT"
+repository = "https://github.com/nyosegawa/agent-task"
+homepage = "https://github.com/nyosegawa/agent-task"
+readme = "README.md"
+keywords = ["cli", "task", "agent", "coding-agent", "productivity"]
+categories = ["command-line-utilities", "development-tools"]
 
 [[bin]]
 name = "task"
