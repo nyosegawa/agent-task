@@ -181,7 +181,7 @@ task init --global  # グローバル設定ファイルに snippet を注入
 
 ```
 ## Task Management
-Task management: use `task` CLI (append-only log, never edit/delete).
+REQUIRED: manage tasks with `task` CLI before, during, and after work. Never skip.
 Commands: `task list [status]` | `task create "<title>" ["<desc>"]` | `task update <id> <status> ["<note>"]` | `task get <id>`
 Session start: `task list doing` (resume) → `task list todo` (pick) → `task create` (if none). Always `task update <id> doing` before work.
 During: human input needed → `task update <id> blocked "<reason>"`. Resumed → `task update <id> doing`.

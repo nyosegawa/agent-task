@@ -3,7 +3,7 @@ use std::fs;
 use std::path::Path;
 use std::path::PathBuf;
 
-const SNIPPET: &str = r#"Task management: use `task` CLI (append-only log, never edit/delete).
+const SNIPPET: &str = r#"REQUIRED: manage tasks with `task` CLI before, during, and after work. Never skip.
 Commands: `task list [status]` | `task create "<title>" ["<desc>"]` | `task update <id> <status> ["<note>"]` | `task get <id>`
 Session start: `task list doing` (resume) → `task list todo` (pick) → `task create` (if none). Always `task update <id> doing` before work.
 During: human input needed → `task update <id> blocked "<reason>"`. Resumed → `task update <id> doing`.
@@ -247,7 +247,8 @@ mod tests {
         assert!(SNIPPET.contains("task create"));
         assert!(SNIPPET.contains("task update"));
         assert!(SNIPPET.contains("task get"));
-        assert!(SNIPPET.contains("append-only"));
+        assert!(SNIPPET.contains("REQUIRED"));
+        assert!(SNIPPET.contains("Never skip"));
         assert!(SNIPPET.contains("Limits:"));
     }
 }
