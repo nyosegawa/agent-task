@@ -257,22 +257,28 @@ GUI は `tasks.log` の consumer であり producer でもある。Agent と GUI
 
 ### セッションログからの状態推定
 
-Agent が `task update blocked` を呼ばなくても、セッションログのシグナルから GUI がタスクの実質的な状態を推定できる。
+instruction で `task update blocked` を指示しても、Agent は plan mode やユーザーへの質問で人間の入力待ちになった際に `blocked` への更新をスキップすることが多い。tasks.log 上は `doing` のまま実際には止まっている状態が発生する。
 
-| Agent | plan mode シグナル | session log 形式 |
-|-------|-------------------|-----------------|
-| Claude Code | `tool_result` に `"Entered plan mode"` が含まれる | `~/.claude/projects/<path>/<session>.jsonl` |
-| Codex | `turn_context` の `collaboration_mode.mode = "plan"` | `~/.codex/archived_sessions/rollout-<ts>-<uuid>.jsonl` |
+これを補うため、GUI はセッションログを読み取り、タスクの実質的な状態を推定する。blocked の原因は plan mode に限らず、ユーザーへの質問・外部入力待ち・セッション断絶など多岐にわたる。
 
-推定ルール:
+#### 人間の入力待ち検出
+
+| Agent | シグナル | 意味 |
+|-------|---------|------|
+| Claude Code | `tool_result` に `"Entered plan mode"` | plan review 待ち |
+| Claude Code | `tool_result` に `AskUserQuestion` の結果 | ユーザーへの質問待ち |
+| Codex | `turn_context` の `collaboration_mode.mode = "plan"` | plan review 待ち |
+| Codex | `event_msg` の `type = "task_complete"` 後に応答なし | ユーザー入力待ち |
+
+#### 推定ルール
 
 | session log のシグナル | 推定状態 |
 |---|---|
-| `TASK_DOING_{id}` が最新 + セッションがアクティブ | doing（作業中）|
-| `TASK_DOING_{id}` 後に plan mode 検出 | blocked（plan review 待ち）|
-| `TASK_DOING_{id}` 後にセッション終了、後続の更新なし | blocked（セッション切れ）|
+| `TASK_DOING_{id}` が最新 + セッションがアクティブ + Agent が出力中 | doing（作業中）|
+| `TASK_DOING_{id}` が最新 + 人間の入力待ちシグナル検出 | blocked（人間の入力待ち）|
+| `TASK_DOING_{id}` が最新 + セッション終了・後続の更新なし | blocked（セッション切れ）|
 
-tasks.log 上のステータスと矛盾する場合は、セッションログ側の推定を優先する（Agent が `blocked` への更新をスキップするケースがあるため）。
+tasks.log 上のステータスと矛盾する場合は、セッションログ側の推定を優先する。
 
 ### 実装方針
 
