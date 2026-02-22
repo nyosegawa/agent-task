@@ -57,6 +57,7 @@ fn inject_into(target: &InjectionTarget) -> Option<String> {
 pub struct InitResult {
     pub injected: Vec<String>,
     pub candidates: Vec<String>,
+    pub up_to_date: usize,
 }
 
 pub fn run_init(global: bool) -> InitResult {
@@ -68,7 +69,7 @@ pub fn run_init(global: bool) -> InitResult {
 
     let candidates: Vec<String> = targets
         .iter()
-        .filter(|t| !t.create_file)
+        .filter(|t| !t.create_file && !t.path.exists())
         .map(|t| {
             t.path
                 .file_name()
@@ -78,11 +79,22 @@ pub fn run_init(global: bool) -> InitResult {
         })
         .collect();
 
+    let up_to_date = targets
+        .iter()
+        .filter(|t| {
+            t.path.exists()
+                && fs::read_to_string(&t.path)
+                    .unwrap_or_default()
+                    .contains(SNIPPET_DETECT)
+        })
+        .count();
+
     let injected = targets.iter().filter_map(inject_into).collect();
 
     InitResult {
         injected,
         candidates,
+        up_to_date,
     }
 }
 

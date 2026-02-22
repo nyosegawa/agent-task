@@ -24,3 +24,12 @@
 - Storage: `~/.local/share/tasks/tasks.log` (append-only JSONL, never edit/delete entries)
 - Project ID: `git remote get-url origin` → `owner/repo` format; fallback to cwd path
 - stdout output is the contract: `TASK_ADD_{id}`, `TASK_{STATUS}_{id}` (e.g. `TASK_DOING_{id}`, `TASK_INREVIEW_{id}`)
+
+
+## Override Rule: Task Management
+REQUIRED: manage tasks with `task` CLI before, during, and after work. Never skip.
+Commands: `task list [status]` | `task create "<title>" ["<desc>"]` | `task update <id> <status> ["<note>"]` | `task get <id>`
+Session start: `task list doing` (resume) → `task list todo` (pick) → `task create` (if none). Always `task update <id> doing` before work.
+During: human input needed → `task update <id> blocked "<reason>"`. Resumed → `task update <id> doing`.
+End: PR → `task update <id> inreview "<pr_url>"`. Direct commit → `task update <id> done`. Unfinished → `blocked`. Unnecessary → `done`.
+Limits: title ≤ 80, desc ≤ 200, note ≤ 200 chars.

@@ -172,19 +172,19 @@ fn main() {
         }
         Commands::Init { global } => {
             let result = init::run_init(global);
-            if result.injected.is_empty() {
-                if result.candidates.is_empty() {
-                    println!("Already up-to-date.");
-                } else {
-                    println!(
-                        "No instruction files found. Create one of these and run again:\n  {}",
-                        result.candidates.join(", ")
-                    );
-                }
-            } else {
+            if !result.injected.is_empty() {
                 for path in &result.injected {
                     println!("Injected: {path}");
                 }
+            } else if result.up_to_date > 0 {
+                println!("Already up-to-date.");
+            } else if !result.candidates.is_empty() {
+                println!(
+                    "No instruction files found. Create one of these and run again:\n  {}",
+                    result.candidates.join(", ")
+                );
+            } else {
+                println!("Already up-to-date.");
             }
         }
     }
