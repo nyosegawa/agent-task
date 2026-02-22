@@ -21,6 +21,6 @@
 2. `cargo fmt --check`
 3. `cargo clippy -- -D warnings`
 ## Task CLI Specifics
-- Storage: `~/.local/share/tasks/tasks.log` (append-only, never edit/delete entries)
+- Storage: `~/.local/share/tasks/tasks.log` (append-only JSONL, never edit/delete entries)
 - Project ID: `git remote get-url origin` → `owner/repo` format; fallback to cwd path
-- stdout output is the contract: `TASK_ADD_{id}`, `TASK_DOING_{id}`, `TASK_REVIEWING_{id}`
+- stdout output is the contract: `TASK_ADD_{id}`, `TASK_{STATUS}_{id}` (e.g. `TASK_DOING_{id}`, `TASK_INREVIEW_{id}`)

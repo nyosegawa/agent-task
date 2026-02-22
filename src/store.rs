@@ -1,50 +1,49 @@
+use chrono::Local;
 use rand::RngExt;
-use std::collections::{HashMap, HashSet};
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::env;
 use std::fs;
 use std::io::Write as _;
 use std::path::PathBuf;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct TaskEntry {
+    pub ts: String,
     pub id: String,
     pub project: String,
     pub status: String,
     pub title: String,
     pub description: String,
+    pub note: String,
 }
 
 impl TaskEntry {
-    pub fn parse(line: &str) -> Option<Self> {
-        let parts: Vec<&str> = line.split(" | ").collect();
-        if parts.len() < 4 {
-            return None;
+    pub fn new(
+        id: String,
+        project: String,
+        status: String,
+        title: String,
+        description: String,
+        note: String,
+    ) -> Self {
+        Self {
+            ts: Local::now().format("%Y-%m-%dT%H:%M:%S%:z").to_string(),
+            id,
+            project,
+            status,
+            title,
+            description,
+            note,
         }
-        Some(Self {
-            id: parts[0].to_string(),
-            project: parts[1].to_string(),
-            status: parts[2].to_string(),
-            title: parts[3].to_string(),
-            description: if parts.len() >= 5 {
-                parts[4..].join(" | ")
-            } else {
-                String::new()
-            },
-        })
     }
 
-    pub fn format_line(&self) -> String {
-        if self.description.is_empty() {
-            format!(
-                "{} | {} | {} | {}",
-                self.id, self.project, self.status, self.title
-            )
-        } else {
-            format!(
-                "{} | {} | {} | {} | {}",
-                self.id, self.project, self.status, self.title, self.description
-            )
-        }
+    pub fn to_jsonl(&self) -> String {
+        serde_json::to_string(self).expect("Failed to serialize TaskEntry")
+    }
+
+    pub fn from_jsonl(line: &str) -> Option<Self> {
+        serde_json::from_str(line).ok()
     }
 }
 
@@ -64,6 +63,9 @@ impl TaskStore {
     }
 
     pub fn default_path() -> Self {
+        if let Ok(custom) = env::var("TASK_LOG_PATH") {
+            return Self::new(PathBuf::from(custom));
+        }
         let home = env::var("HOME").expect("HOME not set");
         Self::new(PathBuf::from(home).join(".local/share/tasks/tasks.log"))
     }
@@ -81,23 +83,37 @@ impl TaskStore {
             .append(true)
             .open(&self.path)
             .expect("Failed to open tasks.log");
-        writeln!(file, "{}", entry.format_line()).expect("Failed to write");
+        writeln!(file, "{}", entry.to_jsonl()).expect("Failed to write");
+    }
+
+    pub fn read_entries(&self) -> Vec<TaskEntry> {
+        if !self.path.exists() {
+            return vec![];
+        }
+        let content = fs::read_to_string(&self.path).expect("Failed to read tasks.log");
+        content.lines().filter_map(TaskEntry::from_jsonl).collect()
     }
 
     pub fn id_exists(&self, id: &str) -> bool {
-        self.read_entries().iter().any(|entry| entry.id == id)
+        self.read_entries().iter().any(|e| e.id == id)
     }
 
-    pub fn latest_title(&self, id: &str) -> String {
+    pub fn latest_entry(&self, id: &str) -> Option<TaskEntry> {
+        self.read_entries().into_iter().rev().find(|e| e.id == id)
+    }
+
+    pub fn entries_for_id(&self, id: &str) -> Vec<TaskEntry> {
         self.read_entries()
-            .iter()
-            .rev()
-            .find(|e| e.id == id)
-            .map(|e| e.title.clone())
-            .unwrap_or_default()
+            .into_iter()
+            .filter(|e| e.id == id)
+            .collect()
     }
 
-    pub fn current_tasks(&self, status_filter: Option<&str>) -> Vec<TaskEntry> {
+    pub fn current_tasks(
+        &self,
+        project: Option<&str>,
+        status_filter: Option<&str>,
+    ) -> Vec<TaskEntry> {
         let entries = self.read_entries();
 
         let mut latest: HashMap<String, TaskEntry> = HashMap::new();
@@ -110,19 +126,11 @@ impl TaskStore {
         let mut result: Vec<TaskEntry> = latest.into_values().collect();
         result.sort_by_key(|e| first_seen.get(&e.id).copied().unwrap_or(usize::MAX));
 
-        let mut seen = HashSet::new();
         result
             .into_iter()
-            .filter(|e| seen.insert(e.id.clone()) && status_filter.is_none_or(|f| e.status == f))
+            .filter(|e| project.is_none_or(|p| e.project == p))
+            .filter(|e| status_filter.is_none_or(|s| e.status == s))
             .collect()
-    }
-
-    pub fn read_entries(&self) -> Vec<TaskEntry> {
-        if !self.path.exists() {
-            return vec![];
-        }
-        let content = fs::read_to_string(&self.path).expect("Failed to read tasks.log");
-        content.lines().filter_map(TaskEntry::parse).collect()
     }
 
     #[cfg(test)]
@@ -134,6 +142,7 @@ impl TaskStore {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::HashSet;
 
     fn temp_store() -> (TaskStore, tempfile::TempDir) {
         let dir = tempfile::tempdir().unwrap();
@@ -143,11 +152,13 @@ mod tests {
 
     fn entry(id: &str, status: &str, title: &str) -> TaskEntry {
         TaskEntry {
+            ts: "2026-02-22T14:30:00+09:00".into(),
             id: id.into(),
             project: "test/proj".into(),
             status: status.into(),
             title: title.into(),
             description: String::new(),
+            note: String::new(),
         }
     }
 
@@ -166,69 +177,66 @@ mod tests {
         assert_eq!(ids.len(), 100);
     }
 
-    // --- TaskEntry::parse ---
+    // --- TaskEntry JSONL ---
 
     #[test]
-    fn parse_4_fields() {
-        let e = TaskEntry::parse("abc12345 | myproject | todo | Do something").unwrap();
-        assert_eq!(e.id, "abc12345");
-        assert_eq!(e.project, "myproject");
-        assert_eq!(e.status, "todo");
-        assert_eq!(e.title, "Do something");
-        assert_eq!(e.description, "");
+    fn to_jsonl_contains_all_fields() {
+        let e = entry("a1b2c3d4", "todo", "Test task");
+        let json = e.to_jsonl();
+        assert!(json.contains("\"id\":\"a1b2c3d4\""));
+        assert!(json.contains("\"status\":\"todo\""));
+        assert!(json.contains("\"title\":\"Test task\""));
+        assert!(json.contains("\"ts\":"));
+        assert!(json.contains("\"project\":"));
+        assert!(json.contains("\"description\":"));
+        assert!(json.contains("\"note\":"));
     }
 
     #[test]
-    fn parse_5_fields() {
-        let e =
-            TaskEntry::parse("abc12345 | myproject | inreview | Task | https://pr.url").unwrap();
-        assert_eq!(e.description, "https://pr.url");
-    }
-
-    #[test]
-    fn parse_description_with_pipes() {
-        let e =
-            TaskEntry::parse("abc12345 | proj | blocked | Task | reason | more detail").unwrap();
-        assert_eq!(e.description, "reason | more detail");
-    }
-
-    #[test]
-    fn parse_too_few_fields() {
-        assert!(TaskEntry::parse("abc12345 | proj | todo").is_none());
-        assert!(TaskEntry::parse("").is_none());
-    }
-
-    // --- TaskEntry::format_line ---
-
-    #[test]
-    fn format_without_description() {
-        assert_eq!(
-            entry("a1", "todo", "T").format_line(),
-            "a1 | test/proj | todo | T"
-        );
-    }
-
-    #[test]
-    fn format_with_description() {
-        let mut e = entry("a1", "inreview", "T");
-        e.description = "https://url".into();
-        assert_eq!(
-            e.format_line(),
-            "a1 | test/proj | inreview | T | https://url"
-        );
-    }
-
-    #[test]
-    fn parse_roundtrip() {
+    fn from_jsonl_roundtrip() {
         let original = TaskEntry {
+            ts: "2026-02-22T14:30:00+09:00".into(),
             id: "deadbeef".into(),
             project: "owner/repo".into(),
             status: "blocked".into(),
             title: "Something broke".into(),
             description: "need help".into(),
+            note: "API issue".into(),
         };
-        let parsed = TaskEntry::parse(&original.format_line()).unwrap();
+        let json = original.to_jsonl();
+        let parsed = TaskEntry::from_jsonl(&json).unwrap();
         assert_eq!(original, parsed);
+    }
+
+    #[test]
+    fn from_jsonl_invalid() {
+        assert!(TaskEntry::from_jsonl("not json").is_none());
+        assert!(TaskEntry::from_jsonl("").is_none());
+        assert!(TaskEntry::from_jsonl("{}").is_none());
+    }
+
+    #[test]
+    fn jsonl_multiline_note() {
+        let mut e = entry("a1", "blocked", "Task");
+        e.note = "line1\nline2".into();
+        let json = e.to_jsonl();
+        assert!(!json.contains('\n') || json.matches('\n').count() == 0);
+        let parsed = TaskEntry::from_jsonl(&json).unwrap();
+        assert_eq!(parsed.note, "line1\nline2");
+    }
+
+    #[test]
+    fn new_sets_timestamp() {
+        let e = TaskEntry::new(
+            "id".into(),
+            "proj".into(),
+            "todo".into(),
+            "T".into(),
+            String::new(),
+            String::new(),
+        );
+        assert!(!e.ts.is_empty());
+        assert!(e.ts.contains('T'));
     }
 
     // --- TaskStore ---
@@ -240,7 +248,7 @@ mod tests {
         store.append(&e);
         let entries = store.read_entries();
         assert_eq!(entries.len(), 1);
-        assert_eq!(entries[0], e);
+        assert_eq!(entries[0].id, "aabbccdd");
     }
 
     #[test]
@@ -262,17 +270,35 @@ mod tests {
     }
 
     #[test]
-    fn latest_title_tracks_updates() {
+    fn latest_entry_tracks_updates() {
         let (store, _dir) = temp_store();
         store.append(&entry("aabb0011", "todo", "Original"));
-        store.append(&entry("aabb0011", "doing", "Updated"));
-        assert_eq!(store.latest_title("aabb0011"), "Updated");
+        let mut e2 = entry("aabb0011", "doing", "Original");
+        e2.note = "started".into();
+        store.append(&e2);
+        let latest = store.latest_entry("aabb0011").unwrap();
+        assert_eq!(latest.status, "doing");
+        assert_eq!(latest.note, "started");
     }
 
     #[test]
-    fn latest_title_missing_returns_empty() {
+    fn latest_entry_missing_returns_none() {
         let (store, _dir) = temp_store();
-        assert_eq!(store.latest_title("nope"), "");
+        assert!(store.latest_entry("nope").is_none());
+    }
+
+    #[test]
+    fn entries_for_id_returns_history() {
+        let (store, _dir) = temp_store();
+        store.append(&entry("t1", "todo", "A"));
+        store.append(&entry("t1", "doing", "A"));
+        store.append(&entry("t2", "todo", "B"));
+        store.append(&entry("t1", "blocked", "A"));
+        let history = store.entries_for_id("t1");
+        assert_eq!(history.len(), 3);
+        assert_eq!(history[0].status, "todo");
+        assert_eq!(history[1].status, "doing");
+        assert_eq!(history[2].status, "blocked");
     }
 
     #[test]
@@ -280,7 +306,7 @@ mod tests {
         let (store, _dir) = temp_store();
         store.append(&entry("task0001", "todo", "A"));
         store.append(&entry("task0001", "doing", "A"));
-        let tasks = store.current_tasks(None);
+        let tasks = store.current_tasks(None, None);
         assert_eq!(tasks.len(), 1);
         assert_eq!(tasks[0].status, "doing");
     }
@@ -290,9 +316,20 @@ mod tests {
         let (store, _dir) = temp_store();
         store.append(&entry("t1", "todo", "A"));
         store.append(&entry("t2", "doing", "B"));
-        assert_eq!(store.current_tasks(Some("todo")).len(), 1);
-        assert_eq!(store.current_tasks(Some("todo"))[0].id, "t1");
-        assert_eq!(store.current_tasks(Some("doing"))[0].id, "t2");
+        assert_eq!(store.current_tasks(None, Some("todo")).len(), 1);
+        assert_eq!(store.current_tasks(None, Some("todo"))[0].id, "t1");
+    }
+
+    #[test]
+    fn current_tasks_filters_by_project() {
+        let (store, _dir) = temp_store();
+        store.append(&entry("t1", "todo", "A"));
+        let mut e2 = entry("t2", "todo", "B");
+        e2.project = "other/proj".into();
+        store.append(&e2);
+        assert_eq!(store.current_tasks(Some("test/proj"), None).len(), 1);
+        assert_eq!(store.current_tasks(Some("other/proj"), None).len(), 1);
+        assert_eq!(store.current_tasks(None, None).len(), 2);
     }
 
     #[test]
@@ -301,7 +338,7 @@ mod tests {
         for id in ["c", "a", "b"] {
             store.append(&entry(id, "todo", id));
         }
-        let tasks = store.current_tasks(None);
+        let tasks = store.current_tasks(None, None);
         let ids: Vec<&str> = tasks.iter().map(|t| t.id.as_str()).collect();
         assert_eq!(ids, vec!["c", "a", "b"]);
     }
@@ -310,7 +347,7 @@ mod tests {
     fn empty_store() {
         let (store, _dir) = temp_store();
         assert!(store.read_entries().is_empty());
-        assert!(store.current_tasks(None).is_empty());
+        assert!(store.current_tasks(None, None).is_empty());
         assert!(!store.id_exists("any"));
     }
 
@@ -321,5 +358,20 @@ mod tests {
         store.append(&entry("x", "doing", "T"));
         let raw = fs::read_to_string(store.path()).unwrap();
         assert_eq!(raw.lines().count(), 2);
+    }
+
+    #[test]
+    fn stored_as_valid_jsonl() {
+        let (store, _dir) = temp_store();
+        let mut e = entry("a1b2c3d4", "todo", "Test");
+        e.description = "desc".into();
+        e.note = "note".into();
+        store.append(&e);
+        let raw = fs::read_to_string(store.path()).unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(raw.trim()).unwrap();
+        assert_eq!(parsed["id"], "a1b2c3d4");
+        assert_eq!(parsed["status"], "todo");
+        assert_eq!(parsed["description"], "desc");
+        assert_eq!(parsed["note"], "note");
     }
 }

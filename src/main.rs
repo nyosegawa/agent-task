@@ -1,3 +1,4 @@
+mod init;
 mod project;
 mod store;
 
@@ -13,34 +14,58 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Create a new task with status and note
-    Write {
-        /// Task status (inbox, todo, doing, blocked, inreview, done)
+    /// Create a new task
+    Create {
+        /// Task title
+        title: String,
+        /// Task description
+        description: Option<String>,
+        /// Initial status (default: todo)
+        #[arg(long, default_value = "todo")]
         status: String,
-        /// Task title/note
-        note: String,
     },
-    /// Declare session start for a task
-    Doing {
-        /// Task ID (8-char hash)
+    /// Update task status
+    Update {
+        /// Task ID (8-char hex)
         id: String,
-    },
-    /// Mark task as reviewing with PR URL
-    Reviewing {
-        /// Task ID (8-char hash)
-        id: String,
-        /// Pull request URL
-        pr_url: String,
-    },
-    /// List tasks (current state per ID)
-    Get {
-        /// Filter by status
+        /// New status
+        status: String,
+        /// Transition note (block reason, PR URL, etc.)
+        note: Option<String>,
+        /// Update description
         #[arg(long)]
+        description: Option<String>,
+    },
+    /// List tasks
+    List {
+        /// Filter by status
         status: Option<String>,
+        /// Show all projects (default: current project only)
+        #[arg(long)]
+        all: bool,
+    },
+    /// Show task detail and state transition history
+    Get {
+        /// Task ID (8-char hex)
+        id: String,
+    },
+    /// Inject instruction snippet into agent config files
+    Init {
+        /// Inject into global config files instead of project-local
+        #[arg(long)]
+        global: bool,
     },
 }
 
-const VALID_STATUSES: &[&str] = &["inbox", "todo", "doing", "blocked", "inreview", "done"];
+fn validate_length(value: &str, field: &str, max: usize) {
+    if value.chars().count() > max {
+        eprintln!(
+            "Error: {field} exceeds {max} chars ({} chars given)",
+            value.chars().count()
+        );
+        std::process::exit(1);
+    }
+}
 
 fn main() {
     let cli = Cli::parse();
@@ -48,58 +73,111 @@ fn main() {
     let project = project::get_project();
 
     match cli.command {
-        Commands::Write { status, note } => {
-            if !VALID_STATUSES.contains(&status.as_str()) {
-                eprintln!(
-                    "Error: invalid status '{}'. Valid: {}",
-                    status,
-                    VALID_STATUSES.join(", ")
-                );
-                std::process::exit(1);
+        Commands::Create {
+            title,
+            description,
+            status,
+        } => {
+            validate_length(&title, "title", 80);
+            if let Some(ref d) = description {
+                validate_length(d, "description", 200);
             }
             let id = gen_id();
-            store.append(&TaskEntry {
-                id: id.clone(),
+            store.append(&TaskEntry::new(
+                id.clone(),
                 project,
                 status,
-                title: note,
-                description: String::new(),
-            });
+                title,
+                description.unwrap_or_default(),
+                String::new(),
+            ));
             println!("TASK_ADD_{id}");
         }
-        Commands::Doing { id } => {
+        Commands::Update {
+            id,
+            status,
+            note,
+            description,
+        } => {
             if !store.id_exists(&id) {
                 eprintln!("Error: task '{id}' not found");
                 std::process::exit(1);
             }
-            let title = store.latest_title(&id);
-            store.append(&TaskEntry {
-                id: id.clone(),
+            if let Some(ref n) = note {
+                validate_length(n, "note", 200);
+            }
+            if let Some(ref d) = description {
+                validate_length(d, "description", 200);
+            }
+            let prev = store.latest_entry(&id).unwrap();
+            let new_description = description.unwrap_or(prev.description);
+            store.append(&TaskEntry::new(
+                id.clone(),
                 project,
-                status: "doing".into(),
-                title,
-                description: String::new(),
-            });
-            println!("TASK_DOING_{id}");
+                status.clone(),
+                prev.title,
+                new_description,
+                note.unwrap_or_default(),
+            ));
+            println!("TASK_{}_{id}", status.to_uppercase());
         }
-        Commands::Reviewing { id, pr_url } => {
-            if !store.id_exists(&id) {
+        Commands::List { status, all } => {
+            let project_filter = if all { None } else { Some(project.as_str()) };
+            let tasks = store.current_tasks(project_filter, status.as_deref());
+            if tasks.is_empty() {
+                return;
+            }
+            println!("{:<10} {:<8} {:<24} TITLE", "ID", "STATUS", "PROJECT");
+            for task in tasks {
+                println!(
+                    "{:<10} {:<8} {:<24} {}",
+                    task.id, task.status, task.project, task.title
+                );
+            }
+        }
+        Commands::Get { id } => {
+            let entries = store.entries_for_id(&id);
+            if entries.is_empty() {
                 eprintln!("Error: task '{id}' not found");
                 std::process::exit(1);
             }
-            let title = store.latest_title(&id);
-            store.append(&TaskEntry {
-                id: id.clone(),
-                project,
-                status: "inreview".into(),
-                title,
-                description: pr_url,
-            });
-            println!("TASK_REVIEWING_{id}");
+            let latest = entries.last().unwrap();
+            println!("{} | {} | {}", latest.id, latest.project, latest.title);
+            if !latest.description.is_empty() {
+                for line in latest.description.lines() {
+                    println!("  {line}");
+                }
+                println!();
+            }
+            for entry in &entries {
+                if entry.note.is_empty() {
+                    println!("  {:<28} {}", entry.ts, entry.status);
+                } else {
+                    let note_display: String = entry
+                        .note
+                        .lines()
+                        .enumerate()
+                        .map(|(i, l)| {
+                            if i == 0 {
+                                l.to_string()
+                            } else {
+                                format!("\n{:>42}{l}", "")
+                            }
+                        })
+                        .collect::<Vec<_>>()
+                        .join("");
+                    println!("  {:<28} {:<10} {}", entry.ts, entry.status, note_display);
+                }
+            }
         }
-        Commands::Get { status } => {
-            for task in store.current_tasks(status.as_deref()) {
-                println!("{}", task.format_line());
+        Commands::Init { global } => {
+            let injected = init::run_init(global);
+            if injected.is_empty() {
+                println!("No files to inject (all up-to-date or no target files found)");
+            } else {
+                for path in &injected {
+                    println!("Injected: {path}");
+                }
             }
         }
     }
