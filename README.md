@@ -180,7 +180,7 @@ task init --global  # グローバル設定ファイルに snippet を注入
 `task init` が注入する内容:
 
 ```
-## Task Management
+## Override Rule: Task Management
 REQUIRED: manage tasks with `task` CLI before, during, and after work. Never skip.
 Commands: `task list [status]` | `task create "<title>" ["<desc>"]` | `task update <id> <status> ["<note>"]` | `task get <id>`
 Session start: `task list doing` (resume) → `task list todo` (pick) → `task create` (if none). Always `task update <id> doing` before work.

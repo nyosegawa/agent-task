@@ -91,19 +91,19 @@ fn local_targets() -> Vec<InjectionTarget> {
     vec![
         InjectionTarget {
             path: cwd.join("CLAUDE.md"),
-            header: "## Task Management".into(),
+            header: "## Override Rule: Task Management".into(),
             create_file: false,
             frontmatter: None,
         },
         InjectionTarget {
             path: cwd.join("AGENTS.md"),
-            header: "## Task Management".into(),
+            header: "## Override Rule: Task Management".into(),
             create_file: false,
             frontmatter: None,
         },
         InjectionTarget {
             path: cwd.join("GEMINI.md"),
-            header: "## Task Management".into(),
+            header: "## Override Rule: Task Management".into(),
             create_file: false,
             frontmatter: None,
         },
@@ -117,7 +117,7 @@ fn local_targets() -> Vec<InjectionTarget> {
         },
         InjectionTarget {
             path: cwd.join(".clinerules/task-management.md"),
-            header: "# Task Management".into(),
+            header: "# Override Rule: Task Management".into(),
             create_file: true,
             frontmatter: None,
         },
@@ -129,31 +129,31 @@ fn global_targets() -> Vec<InjectionTarget> {
     vec![
         InjectionTarget {
             path: home.join(".claude/CLAUDE.md"),
-            header: "## Task Management".into(),
+            header: "## Override Rule: Task Management".into(),
             create_file: true,
             frontmatter: None,
         },
         InjectionTarget {
             path: home.join(".codex/AGENTS.md"),
-            header: "## Task Management".into(),
+            header: "## Override Rule: Task Management".into(),
             create_file: true,
             frontmatter: None,
         },
         InjectionTarget {
             path: home.join(".gemini/GEMINI.md"),
-            header: "## Task Management".into(),
+            header: "## Override Rule: Task Management".into(),
             create_file: true,
             frontmatter: None,
         },
         InjectionTarget {
             path: home.join(".config/cline/rules/task-management.md"),
-            header: "# Task Management".into(),
+            header: "# Override Rule: Task Management".into(),
             create_file: true,
             frontmatter: None,
         },
         InjectionTarget {
             path: home.join(".config/opencode/AGENTS.md"),
-            header: "## Task Management".into(),
+            header: "## Override Rule: Task Management".into(),
             create_file: true,
             frontmatter: None,
         },
@@ -236,9 +236,9 @@ mod tests {
         let dir = temp_dir();
         let path = dir.path().join("CLAUDE.md");
         fs::write(&path, "existing content").unwrap();
-        inject_into_file(&path, "## Task Management", None);
+        inject_into_file(&path, "## Override Rule: Task Management", None);
         let content = fs::read_to_string(&path).unwrap();
-        assert!(content.contains("existing content\n\n## Task Management"));
+        assert!(content.contains("existing content\n\n## Override Rule: Task Management"));
     }
 
     #[test]
