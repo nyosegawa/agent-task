@@ -134,7 +134,7 @@ impl TaskStore {
     }
 
     pub fn lang_config_path(&self) -> PathBuf {
-        self.path.parent().unwrap().join("lang.json")
+        self.path.parent().unwrap().join("lang")
     }
 
     #[cfg(test)]

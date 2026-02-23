@@ -50,7 +50,7 @@ enum Commands {
         /// Task ID (8-char hex)
         id: String,
     },
-    /// Set or show expected language for the current project
+    /// Set or show expected language (global)
     Lang {
         /// Language code (e.g., ja, en). Omit to show current setting.
         code: Option<String>,
@@ -92,7 +92,7 @@ fn main() {
                 validate_length(d, "description", 500);
             }
             let lang_config = lang::LangConfig::new(store.lang_config_path());
-            if let Some(expected) = lang_config.get(&project) {
+            if let Some(expected) = lang_config.get() {
                 if let Err(e) = lang::validate_language(&title, &expected) {
                     eprintln!("Error: title {e}");
                     std::process::exit(1);
@@ -195,17 +195,17 @@ fn main() {
         Commands::Lang { code, unset } => {
             let lang_config = lang::LangConfig::new(store.lang_config_path());
             if unset {
-                lang_config.unset(&project);
+                lang_config.unset();
                 println!("Language setting removed.");
             } else if let Some(code) = code {
                 if lang::resolve_lang(&code).is_none() {
                     eprintln!("Error: unsupported language code: '{code}'");
                     std::process::exit(1);
                 }
-                lang_config.set(&project, &code);
+                lang_config.set(&code);
                 println!("Language set to '{code}'.");
             } else {
-                match lang_config.get(&project) {
+                match lang_config.get() {
                     Some(lang) => println!("{lang}"),
                     None => println!("Language not set."),
                 }

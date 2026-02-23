@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 
@@ -11,35 +10,22 @@ impl LangConfig {
         Self { path }
     }
 
-    pub fn set(&self, project: &str, lang: &str) {
-        let mut config = self.load();
-        config.insert(project.to_string(), lang.to_string());
-        self.save(&config);
-    }
-
-    pub fn get(&self, project: &str) -> Option<String> {
-        self.load().get(project).cloned()
-    }
-
-    pub fn unset(&self, project: &str) {
-        let mut config = self.load();
-        config.remove(project);
-        self.save(&config);
-    }
-
-    fn load(&self) -> HashMap<String, String> {
-        fs::read_to_string(&self.path)
-            .ok()
-            .and_then(|s| serde_json::from_str(&s).ok())
-            .unwrap_or_default()
-    }
-
-    fn save(&self, config: &HashMap<String, String>) {
+    pub fn set(&self, lang: &str) {
         if let Some(parent) = self.path.parent() {
             fs::create_dir_all(parent).ok();
         }
-        let json = serde_json::to_string(config).unwrap();
-        fs::write(&self.path, json).ok();
+        fs::write(&self.path, lang).ok();
+    }
+
+    pub fn get(&self) -> Option<String> {
+        fs::read_to_string(&self.path)
+            .ok()
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+    }
+
+    pub fn unset(&self) {
+        fs::remove_file(&self.path).ok();
     }
 }
 
@@ -120,38 +106,37 @@ mod tests {
 
     fn temp_config() -> (LangConfig, tempfile::TempDir) {
         let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("lang.json");
+        let path = dir.path().join("lang");
         (LangConfig::new(path), dir)
     }
 
     #[test]
     fn get_returns_none_when_not_set() {
         let (config, _dir) = temp_config();
-        assert!(config.get("test/proj").is_none());
+        assert!(config.get().is_none());
     }
 
     #[test]
     fn set_and_get() {
         let (config, _dir) = temp_config();
-        config.set("test/proj", "ja");
-        assert_eq!(config.get("test/proj"), Some("ja".to_string()));
+        config.set("ja");
+        assert_eq!(config.get(), Some("ja".to_string()));
+    }
+
+    #[test]
+    fn set_overwrites() {
+        let (config, _dir) = temp_config();
+        config.set("ja");
+        config.set("en");
+        assert_eq!(config.get(), Some("en".to_string()));
     }
 
     #[test]
     fn unset_removes() {
         let (config, _dir) = temp_config();
-        config.set("test/proj", "ja");
-        config.unset("test/proj");
-        assert!(config.get("test/proj").is_none());
-    }
-
-    #[test]
-    fn separate_projects() {
-        let (config, _dir) = temp_config();
-        config.set("proj/a", "ja");
-        config.set("proj/b", "en");
-        assert_eq!(config.get("proj/a"), Some("ja".to_string()));
-        assert_eq!(config.get("proj/b"), Some("en".to_string()));
+        config.set("ja");
+        config.unset();
+        assert!(config.get().is_none());
     }
 
     #[test]

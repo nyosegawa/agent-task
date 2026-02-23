@@ -88,17 +88,17 @@ task init --global  # グローバル設定ファイルに注入
 
 ### task lang
 
-プロジェクト単位で期待する言語を設定する。設定されている場合、`task create` / `task update --description` 時に title と description の言語を [whatlang](https://github.com/greyblake/whatlang-rs) で判定し、不一致ならエラーを返す。
+期待する言語をグローバルに設定する。設定されている場合、`task create` 時に title と description の言語を [whatlang](https://github.com/greyblake/whatlang-rs) で判定し、不一致ならエラーを返す。
 
 ```bash
-task lang ja          # 現プロジェクトの期待言語を日本語に設定
+task lang ja          # 期待言語を日本語に設定
 task lang             # 現在の設定を表示（未設定なら "Language not set."）
 task lang --unset     # 設定を解除
 ```
 
 - ISO 639-1（`ja`, `en` 等）と ISO 639-3（`jpn`, `eng` 等）の両方に対応
 - 短文（8文字未満）や判定信頼度が低い場合（< 0.5）はバリデーションをスキップし、誤判定を回避
-- 設定はプロジェクトごとに `~/.local/share/tasks/lang.json` に保存
+- 設定は `~/.local/share/tasks/lang` に保存（グローバル単一設定）
 - ライブラリ選定の詳細は [ADR-001](docs/adr/001-language-detection-library.md) を参照
 
 ### task list のスコープ
