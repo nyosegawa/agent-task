@@ -67,11 +67,11 @@ task init --global  # グローバル設定ファイルに注入
 
 | 検出対象 | 注入形式 |
 |---------|---------|
-| `CLAUDE.md` | `## Task Management` + snippet 追記 |
-| `AGENTS.md` | `## Task Management` + snippet 追記 |
-| `GEMINI.md` | `## Task Management` + snippet 追記 |
+| `CLAUDE.md` | `## Override Rule: Task Management` + snippet 追記 |
+| `AGENTS.md` | `## Override Rule: Task Management` + snippet 追記 |
+| `GEMINI.md` | `## Override Rule: Task Management` + snippet 追記 |
 | `.cursor/rules/` | `task-management.mdc` を作成（frontmatter付き） |
-| `.clinerules/` | `task-management.md` を作成 |
+| `.clinerules/` | `task-management.md` を作成（`# Override Rule: Task Management` + snippet） |
 
 **グローバル（`task init --global`）**: Agent の設定ディレクトリが存在すれば注入:
 
