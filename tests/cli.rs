@@ -16,6 +16,13 @@ fn task_cmd_env(dir: &tempfile::TempDir) -> assert_cmd::Command {
     cmd
 }
 
+fn created_id(stdout: &str) -> &str {
+    stdout
+        .lines()
+        .find_map(|line| line.strip_prefix("TASK_ADD_"))
+        .expect("TASK_ADD_ line not found")
+}
+
 // --- create ---
 
 #[test]
@@ -24,7 +31,17 @@ fn create_outputs_task_add_prefix() {
     cmd.args(["create", "test task"])
         .assert()
         .success()
-        .stdout(predicate::str::starts_with("TASK_ADD_"));
+        .stdout(predicate::str::contains("TASK_ADD_"));
+}
+
+#[test]
+fn create_outputs_human_and_machine_readable_lines() {
+    let (mut cmd, _dir) = task_cmd_with_log();
+    cmd.args(["create", "test task"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("task created! ID: "))
+        .stdout(predicate::str::contains("\nTASK_ADD_"));
 }
 
 #[test]
@@ -33,7 +50,7 @@ fn create_with_description() {
     cmd.args(["create", "my task", "detailed description"])
         .assert()
         .success()
-        .stdout(predicate::str::starts_with("TASK_ADD_"));
+        .stdout(predicate::str::contains("TASK_ADD_"));
 }
 
 #[test]
@@ -42,7 +59,7 @@ fn create_with_status_flag() {
     cmd.args(["create", "inbox task", "--status", "inbox"])
         .assert()
         .success()
-        .stdout(predicate::str::starts_with("TASK_ADD_"));
+        .stdout(predicate::str::contains("TASK_ADD_"));
 }
 
 #[test]
@@ -92,7 +109,7 @@ fn update_outputs_status_prefix() {
         .output()
         .expect("create failed");
     let stdout = String::from_utf8_lossy(&create_output.stdout);
-    let id = stdout.trim().strip_prefix("TASK_ADD_").unwrap();
+    let id = created_id(&stdout);
 
     task_cmd_env(&dir)
         .args(["update", id, "doing"])
@@ -109,7 +126,7 @@ fn update_with_note() {
         .output()
         .expect("create failed");
     let stdout = String::from_utf8_lossy(&create_output.stdout);
-    let id = stdout.trim().strip_prefix("TASK_ADD_").unwrap();
+    let id = created_id(&stdout);
 
     task_cmd_env(&dir)
         .args(["update", id, "blocked", "API not ready"])
@@ -126,7 +143,7 @@ fn update_note_too_long_fails() {
         .output()
         .expect("create failed");
     let stdout = String::from_utf8_lossy(&create_output.stdout);
-    let id = stdout.trim().strip_prefix("TASK_ADD_").unwrap();
+    let id = created_id(&stdout);
 
     let long_note = "x".repeat(201);
     task_cmd_env(&dir)
@@ -163,7 +180,7 @@ fn get_shows_history() {
         .output()
         .expect("create failed");
     let stdout = String::from_utf8_lossy(&create_output.stdout);
-    let id = stdout.trim().strip_prefix("TASK_ADD_").unwrap();
+    let id = created_id(&stdout);
 
     task_cmd_env(&dir)
         .args(["update", id, "doing"])
@@ -261,7 +278,7 @@ fn create_with_correct_lang_succeeds() {
         .args(["create", "English task title for testing"])
         .assert()
         .success()
-        .stdout(predicate::str::starts_with("TASK_ADD_"));
+        .stdout(predicate::str::contains("TASK_ADD_"));
 }
 
 #[test]
@@ -270,7 +287,7 @@ fn create_without_lang_setting_succeeds_any_language() {
     cmd.args(["create", "日本語テストタスク"])
         .assert()
         .success()
-        .stdout(predicate::str::starts_with("TASK_ADD_"));
+        .stdout(predicate::str::contains("TASK_ADD_"));
 }
 
 // --- help ---

@@ -113,6 +113,7 @@ fn main() {
                 description.unwrap_or_default(),
                 String::new(),
             ));
+            println!("task created! ID: {id}");
             println!("TASK_ADD_{id}");
         }
         Commands::Update {

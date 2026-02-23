@@ -10,7 +10,7 @@ JSONL ファイル (`~/.local/share/tasks/tasks.log`) を single source of truth
 
 このCLIは、Agent が自律的にシェルコマンドを叩けることで成立する:
 
-- **stdout がインターフェース**: `TASK_DOING_a3f8c2d1` のようなプレフィックス付きIDがセッションログに自動記録され、タスクとセッションの紐づけになる。MCP不要、API不要
+- **stdout がインターフェース**: `task create` は `task created! ID: <id>`（人間向け）と `TASK_ADD_<id>`（機械向け）を出力し、`task update` は `TASK_DOING_a3f8c2d1` のようなプレフィックス付きIDを出力する。セッションログとタスクを紐づけできる。MCP不要、API不要
 - **append-only JSONL ログ**: `tasks.log` は追記のみ。edit/delete 禁止。各IDの最新エントリが現在状態。ロック不要で複数 Agent の同時書き込みに耐える
 - **Agent 非依存**: Claude Code, Codex, Gemini CLI, Cursor, Cline, OpenCode, Antigravity — どの Agent でも instruction ファイルに数行追記するだけで導入できる
 
@@ -123,12 +123,15 @@ description はヘッダ下に表示。note は各遷移の右に表示。複数
 
 ## stdout output
 
-stdout出力がセッションログとの紐づけに使われる。
+stdout出力がセッションログとの紐づけに使われる。`task create` は2行出力で、2行目の `TASK_ADD_{id}` を機械処理に使う（`TASK_CREATED_{id}` は `task update <id> created` と衝突するため使わない）。
 
 ```
-task create "認証機能を実装"                                       → TASK_ADD_a3f8c2d1
-task create "DB移行スクリプト" "PostgreSQL 15対応"                  → TASK_ADD_b7e1d4f2
-task create "あとで考える" --status inbox                           → TASK_ADD_c9d3e5a0
+task create "認証機能を実装"                                       → task created! ID: a3f8c2d1
+                                                                  → TASK_ADD_a3f8c2d1
+task create "DB移行スクリプト" "PostgreSQL 15対応"                  → task created! ID: b7e1d4f2
+                                                                  → TASK_ADD_b7e1d4f2
+task create "あとで考える" --status inbox                           → task created! ID: c9d3e5a0
+                                                                  → TASK_ADD_c9d3e5a0
 task update a3f8c2d1 doing                                         → TASK_DOING_a3f8c2d1
 task update a3f8c2d1 blocked "外部API仕様が未確定"                 → TASK_BLOCKED_a3f8c2d1
 task update a3f8c2d1 blocked "仕様未確定" --description "OAuth2+OIDC" → TASK_BLOCKED_a3f8c2d1
