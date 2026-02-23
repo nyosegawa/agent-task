@@ -191,6 +191,88 @@ fn init_no_targets_shows_message() {
     );
 }
 
+// --- lang ---
+
+#[test]
+fn lang_show_when_not_set() {
+    let (mut cmd, _dir) = task_cmd_with_log();
+    cmd.args(["lang"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("not set"));
+}
+
+#[test]
+fn lang_set_and_show() {
+    let (mut cmd, dir) = task_cmd_with_log();
+    cmd.args(["lang", "ja"]).assert().success();
+
+    task_cmd_env(&dir)
+        .args(["lang"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("ja"));
+}
+
+#[test]
+fn lang_unset() {
+    let (mut cmd, dir) = task_cmd_with_log();
+    cmd.args(["lang", "ja"]).assert().success();
+
+    task_cmd_env(&dir)
+        .args(["lang", "--unset"])
+        .assert()
+        .success();
+
+    task_cmd_env(&dir)
+        .args(["lang"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("not set"));
+}
+
+#[test]
+fn lang_unsupported_code_fails() {
+    let (mut cmd, _dir) = task_cmd_with_log();
+    cmd.args(["lang", "xx"])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("unsupported"));
+}
+
+#[test]
+fn create_with_wrong_lang_fails() {
+    let (mut cmd, dir) = task_cmd_with_log();
+    cmd.args(["lang", "en"]).assert().success();
+
+    task_cmd_env(&dir)
+        .args(["create", "これは日本語のタスクタイトルです"])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("language mismatch"));
+}
+
+#[test]
+fn create_with_correct_lang_succeeds() {
+    let (mut cmd, dir) = task_cmd_with_log();
+    cmd.args(["lang", "en"]).assert().success();
+
+    task_cmd_env(&dir)
+        .args(["create", "English task title for testing"])
+        .assert()
+        .success()
+        .stdout(predicate::str::starts_with("TASK_ADD_"));
+}
+
+#[test]
+fn create_without_lang_setting_succeeds_any_language() {
+    let (mut cmd, _dir) = task_cmd_with_log();
+    cmd.args(["create", "日本語テストタスク"])
+        .assert()
+        .success()
+        .stdout(predicate::str::starts_with("TASK_ADD_"));
+}
+
 // --- help ---
 
 #[test]

@@ -1,4 +1,5 @@
 mod init;
+mod lang;
 mod project;
 mod store;
 
@@ -49,6 +50,14 @@ enum Commands {
         /// Task ID (8-char hex)
         id: String,
     },
+    /// Set or show expected language for the current project
+    Lang {
+        /// Language code (e.g., ja, en). Omit to show current setting.
+        code: Option<String>,
+        /// Remove language setting
+        #[arg(long)]
+        unset: bool,
+    },
     /// Inject instruction snippet into agent config files
     Init {
         /// Inject into global config files instead of project-local
@@ -81,6 +90,19 @@ fn main() {
             validate_length(&title, "title", 50);
             if let Some(ref d) = description {
                 validate_length(d, "description", 500);
+            }
+            let lang_config = lang::LangConfig::new(store.lang_config_path());
+            if let Some(expected) = lang_config.get(&project) {
+                if let Err(e) = lang::validate_language(&title, &expected) {
+                    eprintln!("Error: title {e}");
+                    std::process::exit(1);
+                }
+                if let Some(ref d) = description
+                    && let Err(e) = lang::validate_language(d, &expected)
+                {
+                    eprintln!("Error: description {e}");
+                    std::process::exit(1);
+                }
             }
             let id = gen_id();
             store.append(&TaskEntry::new(
@@ -167,6 +189,25 @@ fn main() {
                         .collect::<Vec<_>>()
                         .join("");
                     println!("  {:<28} {:<10} {}", entry.ts, entry.status, note_display);
+                }
+            }
+        }
+        Commands::Lang { code, unset } => {
+            let lang_config = lang::LangConfig::new(store.lang_config_path());
+            if unset {
+                lang_config.unset(&project);
+                println!("Language setting removed.");
+            } else if let Some(code) = code {
+                if lang::resolve_lang(&code).is_none() {
+                    eprintln!("Error: unsupported language code: '{code}'");
+                    std::process::exit(1);
+                }
+                lang_config.set(&project, &code);
+                println!("Language set to '{code}'.");
+            } else {
+                match lang_config.get(&project) {
+                    Some(lang) => println!("{lang}"),
+                    None => println!("Language not set."),
                 }
             }
         }
