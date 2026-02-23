@@ -133,10 +133,6 @@ impl TaskStore {
             .collect()
     }
 
-    pub fn lang_config_path(&self) -> PathBuf {
-        self.path.parent().unwrap().join("lang")
-    }
-
     #[cfg(test)]
     pub fn path(&self) -> &PathBuf {
         &self.path

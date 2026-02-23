@@ -1,5 +1,4 @@
 mod init;
-mod lang;
 mod project;
 mod store;
 
@@ -50,30 +49,12 @@ enum Commands {
         /// Task ID (8-char hex)
         id: String,
     },
-    /// Set or show expected language (global)
-    Lang {
-        /// Language code (e.g., ja, en). Omit to show current setting.
-        code: Option<String>,
-        /// Remove language setting
-        #[arg(long)]
-        unset: bool,
-    },
     /// Inject instruction snippet into agent config files
     Init {
         /// Inject into global config files instead of project-local
         #[arg(long)]
         global: bool,
     },
-}
-
-fn validate_length(value: &str, field: &str, max: usize) {
-    if value.chars().count() > max {
-        eprintln!(
-            "Error: {field} exceeds {max} chars ({} chars given)",
-            value.chars().count()
-        );
-        std::process::exit(1);
-    }
 }
 
 fn main() {
@@ -87,23 +68,6 @@ fn main() {
             description,
             status,
         } => {
-            validate_length(&title, "title", 50);
-            if let Some(ref d) = description {
-                validate_length(d, "description", 500);
-            }
-            let lang_config = lang::LangConfig::new(store.lang_config_path());
-            if let Some(expected) = lang_config.get() {
-                if let Err(e) = lang::validate_language(&title, &expected) {
-                    eprintln!("Error: title {e}");
-                    std::process::exit(1);
-                }
-                if let Some(ref d) = description
-                    && let Err(e) = lang::validate_language(d, &expected)
-                {
-                    eprintln!("Error: description {e}");
-                    std::process::exit(1);
-                }
-            }
             let id = gen_id();
             store.append(&TaskEntry::new(
                 id.clone(),
@@ -125,12 +89,6 @@ fn main() {
             if !store.id_exists(&id) {
                 eprintln!("Error: task '{id}' not found");
                 std::process::exit(1);
-            }
-            if let Some(ref n) = note {
-                validate_length(n, "note", 200);
-            }
-            if let Some(ref d) = description {
-                validate_length(d, "description", 500);
             }
             let prev = store.latest_entry(&id).unwrap();
             let new_description = description.unwrap_or(prev.description);
@@ -190,25 +148,6 @@ fn main() {
                         .collect::<Vec<_>>()
                         .join("");
                     println!("  {:<28} {:<10} {}", entry.ts, entry.status, note_display);
-                }
-            }
-        }
-        Commands::Lang { code, unset } => {
-            let lang_config = lang::LangConfig::new(store.lang_config_path());
-            if unset {
-                lang_config.unset();
-                println!("Language setting removed.");
-            } else if let Some(code) = code {
-                if lang::resolve_lang(&code).is_none() {
-                    eprintln!("Error: unsupported language code: '{code}'");
-                    std::process::exit(1);
-                }
-                lang_config.set(&code);
-                println!("Language set to '{code}'.");
-            } else {
-                match lang_config.get() {
-                    Some(lang) => println!("{lang}"),
-                    None => println!("Language not set."),
                 }
             }
         }

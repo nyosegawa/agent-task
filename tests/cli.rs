@@ -71,23 +71,23 @@ fn create_any_status_accepted() {
 }
 
 #[test]
-fn create_title_too_long_fails() {
-    let long_title = "x".repeat(51);
+fn create_title_too_long_succeeds() {
+    let long_title = "x".repeat(200);
     let (mut cmd, _dir) = task_cmd_with_log();
     cmd.args(["create", &long_title])
         .assert()
-        .failure()
-        .stderr(predicate::str::contains("exceeds 50 chars"));
+        .success()
+        .stdout(predicate::str::contains("TASK_ADD_"));
 }
 
 #[test]
-fn create_description_too_long_fails() {
-    let long_desc = "x".repeat(501);
+fn create_description_too_long_succeeds() {
+    let long_desc = "x".repeat(2000);
     let (mut cmd, _dir) = task_cmd_with_log();
     cmd.args(["create", "title", &long_desc])
         .assert()
-        .failure()
-        .stderr(predicate::str::contains("exceeds 500 chars"));
+        .success()
+        .stdout(predicate::str::contains("TASK_ADD_"));
 }
 
 // --- update ---
@@ -136,7 +136,7 @@ fn update_with_note() {
 }
 
 #[test]
-fn update_note_too_long_fails() {
+fn update_note_too_long_succeeds() {
     let (mut cmd, dir) = task_cmd_with_log();
     let create_output = cmd
         .args(["create", "test"])
@@ -145,12 +145,12 @@ fn update_note_too_long_fails() {
     let stdout = String::from_utf8_lossy(&create_output.stdout);
     let id = created_id(&stdout);
 
-    let long_note = "x".repeat(201);
+    let long_note = "x".repeat(3000);
     task_cmd_env(&dir)
         .args(["update", id, "blocked", &long_note])
         .assert()
-        .failure()
-        .stderr(predicate::str::contains("exceeds 200 chars"));
+        .success()
+        .stdout(predicate::str::starts_with(&format!("TASK_BLOCKED_{id}")));
 }
 
 // --- list ---
@@ -208,86 +208,22 @@ fn init_no_targets_shows_message() {
     );
 }
 
-// --- lang ---
+#[test]
+fn create_succeeds_with_any_language_text() {
+    let (mut cmd, _dir) = task_cmd_with_log();
+    cmd.args(["create", "日本語テストタスク English mixed text"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("TASK_ADD_"));
+}
 
 #[test]
-fn lang_show_when_not_set() {
+fn lang_subcommand_is_not_available() {
     let (mut cmd, _dir) = task_cmd_with_log();
     cmd.args(["lang"])
         .assert()
-        .success()
-        .stdout(predicate::str::contains("not set"));
-}
-
-#[test]
-fn lang_set_and_show() {
-    let (mut cmd, dir) = task_cmd_with_log();
-    cmd.args(["lang", "ja"]).assert().success();
-
-    task_cmd_env(&dir)
-        .args(["lang"])
-        .assert()
-        .success()
-        .stdout(predicate::str::contains("ja"));
-}
-
-#[test]
-fn lang_unset() {
-    let (mut cmd, dir) = task_cmd_with_log();
-    cmd.args(["lang", "ja"]).assert().success();
-
-    task_cmd_env(&dir)
-        .args(["lang", "--unset"])
-        .assert()
-        .success();
-
-    task_cmd_env(&dir)
-        .args(["lang"])
-        .assert()
-        .success()
-        .stdout(predicate::str::contains("not set"));
-}
-
-#[test]
-fn lang_unsupported_code_fails() {
-    let (mut cmd, _dir) = task_cmd_with_log();
-    cmd.args(["lang", "xx"])
-        .assert()
         .failure()
-        .stderr(predicate::str::contains("unsupported"));
-}
-
-#[test]
-fn create_with_wrong_lang_fails() {
-    let (mut cmd, dir) = task_cmd_with_log();
-    cmd.args(["lang", "en"]).assert().success();
-
-    task_cmd_env(&dir)
-        .args(["create", "これは日本語のタスクタイトルです"])
-        .assert()
-        .failure()
-        .stderr(predicate::str::contains("language mismatch"));
-}
-
-#[test]
-fn create_with_correct_lang_succeeds() {
-    let (mut cmd, dir) = task_cmd_with_log();
-    cmd.args(["lang", "en"]).assert().success();
-
-    task_cmd_env(&dir)
-        .args(["create", "English task title for testing"])
-        .assert()
-        .success()
-        .stdout(predicate::str::contains("TASK_ADD_"));
-}
-
-#[test]
-fn create_without_lang_setting_succeeds_any_language() {
-    let (mut cmd, _dir) = task_cmd_with_log();
-    cmd.args(["create", "日本語テストタスク"])
-        .assert()
-        .success()
-        .stdout(predicate::str::contains("TASK_ADD_"));
+        .stderr(predicate::str::contains("unrecognized subcommand 'lang'"));
 }
 
 // --- help ---

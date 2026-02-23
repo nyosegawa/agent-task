@@ -27,7 +27,6 @@ task create "<title>" ["<description>"] [--status <status>]    # タスク作成
 task update <id> <status> ["<note>"] [--description "<desc>"]  # ステータス更新（ID存在チェックあり）
 task list [<status>] [--all]                                   # 一覧（デフォルト: 現プロジェクト、--all: 全プロジェクト）
 task get <id>                                                  # 詳細・状態遷移履歴
-task lang [<code>] [--unset]                                    # プロジェクトの期待言語を設定・表示・解除
 task init [--global]                                           # instruction snippet を Agent 設定ファイルに注入
 ```
 
@@ -86,21 +85,6 @@ task init --global  # グローバル設定ファイルに注入
 - 既に snippet が含まれている場合はスキップ（冪等）
 - 注入したファイル一覧を stdout に表示
 
-### task lang
-
-期待する言語をグローバルに設定する。設定されている場合、`task create` 時に title と description の言語を [whatlang](https://github.com/greyblake/whatlang-rs) で判定し、不一致ならエラーを返す。
-
-```bash
-task lang ja          # 期待言語を日本語に設定
-task lang             # 現在の設定を表示（未設定なら "Language not set."）
-task lang --unset     # 設定を解除
-```
-
-- ISO 639-1（`ja`, `en` 等）と ISO 639-3（`jpn`, `eng` 等）の両方に対応
-- 短文（8文字未満）や判定信頼度が低い場合（< 0.5）はバリデーションをスキップし、誤判定を回避
-- 設定は `~/.local/share/tasks/lang` に保存（グローバル単一設定）
-- ライブラリ選定の詳細は [ADR-001](docs/adr/001-language-detection-library.md) を参照
-
 ### task list のスコープ
 
 `task list` はデフォルトで cwd のプロジェクト（`git remote get-url origin` から判定）に絞り込む。`--all` で全プロジェクト横断表示。
@@ -137,8 +121,6 @@ task update a3f8c2d1 blocked "外部API仕様が未確定"                 → T
 task update a3f8c2d1 blocked "仕様未確定" --description "OAuth2+OIDC" → TASK_BLOCKED_a3f8c2d1
 task update a3f8c2d1 inreview "https://github.com/.../pull/42"     → TASK_INREVIEW_a3f8c2d1
 task update a3f8c2d1 done                                          → TASK_DONE_a3f8c2d1
-task lang ja                                                       → Language set to 'ja'.
-task lang                                                          → ja
 task list                                                          → (テーブル形式、プレフィックスなし)
 task get a3f8c2d1                                                  → (遷移履歴、プレフィックスなし)
 ```
@@ -207,7 +189,6 @@ Commands: `task list [status]` | `task create "<title>" ["<desc>"]` | `task upda
 Session start: `task list doing` (resume) → `task list todo` (pick) → `task create` (if none). Always `task update <id> doing` before work.
 During: human input needed → `task update <id> blocked "<reason>"`. Resumed → `task update <id> doing`.
 End: PR → `task update <id> inreview "<pr_url>"`. Direct commit → `task update <id> done`. Unfinished → `blocked`. Unnecessary → `done`.
-Limits: title ≤ 50, desc ≤ 500, note ≤ 200 chars.
 ```
 
 ### Agent 別リファレンス

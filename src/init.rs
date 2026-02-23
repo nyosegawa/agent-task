@@ -7,8 +7,7 @@ const SNIPPET: &str = r#"REQUIRED: manage tasks with `task` CLI before, during, 
 Commands: `task list [status]` | `task create "<title>" ["<desc>"]` | `task update <id> <status> ["<note>"]` | `task get <id>`
 Session start: `task list doing` (resume) → `task list todo` (pick) → `task create` (if none). Always `task update <id> doing` before work.
 During: human input needed → `task update <id> blocked "<reason>"`. Resumed → `task update <id> doing`.
-End: PR → `task update <id> inreview "<pr_url>"`. Direct commit → `task update <id> done`. Unfinished → `blocked`. Unnecessary → `done`.
-Limits: title ≤ 50, desc ≤ 500, note ≤ 200 chars."#;
+End: PR → `task update <id> inreview "<pr_url>"`. Direct commit → `task update <id> done`. Unfinished → `blocked`. Unnecessary → `done`."#;
 
 const SNIPPET_DETECT: &str = "task update <id> doing";
 
@@ -261,6 +260,6 @@ mod tests {
         assert!(SNIPPET.contains("task get"));
         assert!(SNIPPET.contains("REQUIRED"));
         assert!(SNIPPET.contains("Never skip"));
-        assert!(SNIPPET.contains("Limits:"));
+        assert!(!SNIPPET.contains("Limits:"));
     }
 }
