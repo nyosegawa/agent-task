@@ -8,7 +8,7 @@ Commands: `task list [status]` | `task create "<title>" ["<desc>"]` | `task upda
 Session start: `task list doing` (resume) → `task list todo` (pick) → `task create` (if none). Always `task update <id> doing` before work.
 During: human input needed → `task update <id> blocked "<reason>"`. Resumed → `task update <id> doing`.
 End: PR → `task update <id> inreview "<pr_url>"`. Direct commit → `task update <id> done`. Unfinished → `blocked`. Unnecessary → `done`.
-Limits: title ≤ 80, desc ≤ 200, note ≤ 200 chars."#;
+Limits: title ≤ 50, desc ≤ 500, note ≤ 200 chars."#;
 
 const SNIPPET_DETECT: &str = "task update <id> doing";
 

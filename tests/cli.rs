@@ -55,22 +55,22 @@ fn create_any_status_accepted() {
 
 #[test]
 fn create_title_too_long_fails() {
-    let long_title = "x".repeat(81);
+    let long_title = "x".repeat(51);
     let (mut cmd, _dir) = task_cmd_with_log();
     cmd.args(["create", &long_title])
         .assert()
         .failure()
-        .stderr(predicate::str::contains("exceeds 80 chars"));
+        .stderr(predicate::str::contains("exceeds 50 chars"));
 }
 
 #[test]
 fn create_description_too_long_fails() {
-    let long_desc = "x".repeat(201);
+    let long_desc = "x".repeat(501);
     let (mut cmd, _dir) = task_cmd_with_log();
     cmd.args(["create", "title", &long_desc])
         .assert()
         .failure()
-        .stderr(predicate::str::contains("exceeds 200 chars"));
+        .stderr(predicate::str::contains("exceeds 500 chars"));
 }
 
 // --- update ---

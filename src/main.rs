@@ -78,9 +78,9 @@ fn main() {
             description,
             status,
         } => {
-            validate_length(&title, "title", 80);
+            validate_length(&title, "title", 50);
             if let Some(ref d) = description {
-                validate_length(d, "description", 200);
+                validate_length(d, "description", 500);
             }
             let id = gen_id();
             store.append(&TaskEntry::new(
@@ -107,7 +107,7 @@ fn main() {
                 validate_length(n, "note", 200);
             }
             if let Some(ref d) = description {
-                validate_length(d, "description", 200);
+                validate_length(d, "description", 500);
             }
             let prev = store.latest_entry(&id).unwrap();
             let new_description = description.unwrap_or(prev.description);
