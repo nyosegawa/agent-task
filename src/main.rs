@@ -112,7 +112,7 @@ fn main() {
             for task in tasks {
                 println!(
                     "{:<10} {:<8} {:<24} {}",
-                    task.id, task.status, task.project, task.title
+                    task.id, task.status, project::short_project(&task.project), task.title
                 );
             }
         }

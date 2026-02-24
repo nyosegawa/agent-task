@@ -3,36 +3,26 @@ use std::process::Command;
 
 pub fn get_project() -> String {
     if let Ok(output) = Command::new("git")
-        .args(["remote", "get-url", "origin"])
+        .args(["rev-parse", "--show-toplevel"])
         .output()
         && output.status.success()
     {
-        let url = String::from_utf8_lossy(&output.stdout).trim().to_string();
-        if let Some(project) = extract_project_from_url(&url) {
-            return project;
-        }
+        return String::from_utf8_lossy(&output.stdout).trim().to_string();
     }
     env::current_dir()
         .map(|p| p.to_string_lossy().to_string())
         .unwrap_or_else(|_| "unknown".to_string())
 }
 
-pub fn extract_project_from_url(url: &str) -> Option<String> {
-    let path = if let Some(rest) = url.strip_prefix("git@") {
-        rest.split(':').nth(1)?
-    } else if let Some(without_scheme) = url.strip_prefix("ssh://git@") {
-        without_scheme.split_once('/')?.1
-    } else if url.starts_with("https://") || url.starts_with("http://") {
-        let without_scheme = url.splitn(3, '/').nth(2)?;
-        without_scheme.split_once('/')?.1
-    } else {
-        return None;
-    };
-    let project = path.strip_suffix(".git").unwrap_or(path);
-    if project.contains('/') {
-        Some(project.to_string())
-    } else {
-        None
+/// Shorten an absolute path to `parent/name` for display.
+pub fn short_project(path: &str) -> &str {
+    let trimmed = path.trim_end_matches('/');
+    match trimmed.rfind('/') {
+        Some(slash) => match trimmed[..slash].rfind('/') {
+            Some(prev) => &trimmed[prev + 1..],
+            None => trimmed,
+        },
+        None => trimmed,
     }
 }
 
@@ -41,48 +31,31 @@ mod tests {
     use super::*;
 
     #[test]
-    fn git_at_url() {
+    fn short_project_two_segments() {
         assert_eq!(
-            extract_project_from_url("git@github.com:owner/repo.git"),
-            Some("owner/repo".into())
+            short_project("/Users/sakasegawa/src/github.com/nyosegawa/agent-task"),
+            "nyosegawa/agent-task"
         );
     }
 
     #[test]
-    fn ssh_url() {
+    fn short_project_deep_path() {
         assert_eq!(
-            extract_project_from_url("ssh://git@github.com/owner/repo.git"),
-            Some("owner/repo".into())
+            short_project("/a/b/c/d/e"),
+            "d/e"
         );
     }
 
     #[test]
-    fn https_url() {
-        assert_eq!(
-            extract_project_from_url("https://github.com/owner/repo.git"),
-            Some("owner/repo".into())
-        );
+    fn short_project_single_segment() {
+        assert_eq!(short_project("repo"), "repo");
     }
 
     #[test]
-    fn https_without_git_suffix() {
+    fn short_project_trailing_slash() {
         assert_eq!(
-            extract_project_from_url("https://github.com/owner/repo"),
-            Some("owner/repo".into())
+            short_project("/Users/x/owner/repo/"),
+            "owner/repo"
         );
-    }
-
-    #[test]
-    fn http_url() {
-        assert_eq!(
-            extract_project_from_url("http://github.com/owner/repo.git"),
-            Some("owner/repo".into())
-        );
-    }
-
-    #[test]
-    fn invalid_url() {
-        assert_eq!(extract_project_from_url("not-a-url"), None);
-        assert_eq!(extract_project_from_url(""), None);
     }
 }
