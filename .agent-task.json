@@ -1,0 +1,15 @@
+{
+  "description": "Coding Agentと人間が非同期で協調するための軽量タスク管理CLI。Rustで実装され、append-only JSONLファイルをストレージとして使用。MCP不要でどのAgentからもシェルコマンドで操作可能。",
+  "commands": [
+    { "name": "test", "command": "cargo test" },
+    { "name": "fmt check", "command": "cargo fmt --check" },
+    { "name": "clippy", "command": "cargo clippy -- -D warnings" },
+    { "name": "build", "command": "cargo build" },
+    { "name": "build release", "command": "cargo build --release" }
+  ],
+  "links": [
+    { "name": "GitHub", "url": "https://github.com/nyosegawa/agent-task" },
+    { "name": "crates.io", "url": "https://crates.io/crates/agent-task" }
+  ],
+  "shortcuts": []
+}
