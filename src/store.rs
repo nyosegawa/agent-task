@@ -1,3 +1,4 @@
+use crate::project::normalize_project;
 use chrono::Local;
 use rand::RngExt;
 use serde::{Deserialize, Serialize};
@@ -128,7 +129,7 @@ impl TaskStore {
 
         result
             .into_iter()
-            .filter(|e| project.is_none_or(|p| e.project == p))
+            .filter(|e| project.is_none_or(|p| normalize_project(&e.project) == normalize_project(p)))
             .filter(|e| status_filter.is_none_or(|s| e.status == s))
             .collect()
     }
@@ -330,6 +331,28 @@ mod tests {
         assert_eq!(store.current_tasks(Some("test/proj"), None).len(), 1);
         assert_eq!(store.current_tasks(Some("other/proj"), None).len(), 1);
         assert_eq!(store.current_tasks(None, None).len(), 2);
+    }
+
+    #[test]
+    fn current_tasks_matches_cross_platform_paths() {
+        let (store, _dir) = temp_store();
+        let mut e1 = entry("t1", "todo", "From macOS");
+        e1.project = "/Users/sakasegawa/src/github.com/nyosegawa/agent-task-web".into();
+        store.append(&e1);
+        let mut e2 = entry("t2", "todo", "From WSL");
+        e2.project = "/home/sakasegawa/src/github.com/nyosegawa/agent-task-web".into();
+        store.append(&e2);
+        let mut e3 = entry("t3", "todo", "From slug");
+        e3.project = "nyosegawa/agent-task-web".into();
+        store.append(&e3);
+
+        // All three should match when filtering by any of the project forms
+        let by_mac = store.current_tasks(Some("/Users/sakasegawa/src/github.com/nyosegawa/agent-task-web"), None);
+        assert_eq!(by_mac.len(), 3);
+        let by_wsl = store.current_tasks(Some("/home/sakasegawa/src/github.com/nyosegawa/agent-task-web"), None);
+        assert_eq!(by_wsl.len(), 3);
+        let by_slug = store.current_tasks(Some("nyosegawa/agent-task-web"), None);
+        assert_eq!(by_slug.len(), 3);
     }
 
     #[test]
