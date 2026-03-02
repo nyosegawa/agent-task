@@ -1,14 +1,8 @@
 use std::env;
 use std::process::Command;
 
-/// Get project identifier. Prefers git remote slug (e.g. "nyosegawa/repo"),
-/// falls back to git toplevel path, then cwd.
+/// Get project identifier as full path (git toplevel or cwd).
 pub fn get_project() -> String {
-    // Try git remote slug first (machine-independent)
-    if let Some(slug) = git_remote_slug() {
-        return slug;
-    }
-    // Fallback to toplevel path
     if let Ok(output) = Command::new("git")
         .args(["rev-parse", "--show-toplevel"])
         .output()
@@ -19,18 +13,6 @@ pub fn get_project() -> String {
     env::current_dir()
         .map(|p| p.to_string_lossy().to_string())
         .unwrap_or_else(|_| "unknown".to_string())
-}
-
-fn git_remote_slug() -> Option<String> {
-    let output = Command::new("git")
-        .args(["remote", "get-url", "origin"])
-        .output()
-        .ok()?;
-    if !output.status.success() {
-        return None;
-    }
-    let url = String::from_utf8_lossy(&output.stdout).trim().to_string();
-    extract_slug_from_url(&url)
 }
 
 /// Extract "owner/repo" from various git remote URL formats.
